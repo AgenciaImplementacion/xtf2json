@@ -42,6 +42,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Service to convert xtf to json
+ *
  * @author grand
  */
 @Service
@@ -83,6 +84,12 @@ public class Ili2JsonService {
 
         pathmap.put(ili_dir, null);
         settings.setTransientObject(UserSettings.ILIDIRS_PATHMAP, pathmap);
+    }
+
+    public String getOgrDirPath() {
+
+        return env.getProperty("ch.so.agi.interlis.paths.ogrPath");
+
     }
 
     private static String getVersion() {
@@ -294,7 +301,7 @@ public class Ili2JsonService {
     private List getTablesXTF(String pathXTF) {
 
         List parameters = new ArrayList();
-        parameters.add("ogrinfo");
+        parameters.add(getOgrDirPath() + File.separator + "ogrinfo");
         parameters.add("-q");
         parameters.add("-so");
         parameters.add(pathXTF);
@@ -315,10 +322,13 @@ public class Ili2JsonService {
         String workingDir = fileXTF.getParent();
 
         String format = "GeoJSON";
-        String outName = workingDir + File.separator + table.substring(table.lastIndexOf('.') + 1) + ".json";
+        
+        String outName = workingDir + File.separator + 
+                         fileXTF.getName().substring(0,fileXTF.getName().lastIndexOf('.')) + "_" + 
+                         table.substring(table.lastIndexOf('.') + 1) + ".json";
 
         List parameters = new ArrayList();
-        parameters.add("ogr2ogr");
+        parameters.add(getOgrDirPath() + File.separator + "ogr2ogr");
         parameters.add("-skipfailures");
         parameters.add("-f");
         parameters.add(format);
@@ -378,10 +388,19 @@ public class Ili2JsonService {
 
                         if (countElements > 0) {
 
-                            // Save properties total and type
-                            Map.Entry<Integer, String> entryProperties = ((JsonArray) element).get(0)
-                                    .getAsJsonObject().get("geometry") instanceof JsonNull
-                                    ? new AbstractMap.SimpleEntry<>(countElements, "table") : new AbstractMap.SimpleEntry<>(countElements, "layer");
+                            Map.Entry<Integer, String> entryProperties;
+
+                            if (((JsonArray) element).get(0).getAsJsonObject().get("geometry") instanceof JsonNull) {
+                                entryProperties = new AbstractMap.SimpleEntry<>(countElements, "Table");
+
+                            } else {
+
+                                JsonObject geomObjectJson = (JsonObject) ((JsonArray) element).get(0).getAsJsonObject().get("geometry");
+                                String typeGeom = geomObjectJson.get("type").getAsString();
+
+                                entryProperties = new AbstractMap.SimpleEntry<>(countElements, typeGeom);
+
+                            }
 
                             checkedFiles.put(outputFile, entryProperties);
 
@@ -410,7 +429,7 @@ public class Ili2JsonService {
 
         out += "{\"result_id\":\"" + dirOutput + "\",\"transfer\":\"" + filenameInput + "\"";
 
-        out += ",\"datasets\": [";
+        out += ",\"spatial_datasets\": [";
 
         String sep = "";
 
@@ -424,15 +443,47 @@ public class Ili2JsonService {
             //int coutItems = (int) entry.getValue();
             Map.Entry entryProperties = (Map.Entry) entry.getValue();
 
-            //String outItem = sep+"\"item\": {";
-            String outItem = sep + "{";
-            outItem += "\"key\" : \"" + fileKey.getName()
-                    + "\", \"count\": " + (Integer) entryProperties.getKey()
-                    + ", \"type\": \"" + (String) entryProperties.getValue();
-            outItem += "\"}";
+            if (!"Table".equals((String) entryProperties.getValue())) {
+                //String outItem = sep+"\"item\": {";
+                String outItem = sep + "{";
+                outItem += "\"key\" : \"" + fileKey.getName()
+                        + "\", \"count\": " + (Integer) entryProperties.getKey()
+                        + ", \"type\": \"" + (String) entryProperties.getValue();
+                outItem += "\"}";
 
-            out += outItem;
-            sep = ",";
+                out += outItem;
+                sep = ",";
+
+            }
+        }
+
+        out = out + "]";
+
+        out += ",\"alphanumeric_datasets\": [";
+        sep = "";
+
+        for (Iterator it = items.entrySet().iterator(); it.hasNext();) {
+
+            Map.Entry entry = (Map.Entry) it.next();
+
+            String key = (String) entry.getKey();
+            File fileKey = new File(key);
+
+            //int coutItems = (int) entry.getValue();
+            Map.Entry entryProperties = (Map.Entry) entry.getValue();
+
+            if ("Table".equals((String) entryProperties.getValue())) {
+                //String outItem = sep+"\"item\": {";
+                String outItem = sep + "{";
+                outItem += "\"key\" : \"" + fileKey.getName()
+                        + "\", \"count\": " + (Integer) entryProperties.getKey()
+                        + ", \"type\": \"" + (String) entryProperties.getValue();
+                outItem += "\"}";
+
+                out += outItem;
+                sep = ",";
+
+            }
         }
 
         out = out + "]";
