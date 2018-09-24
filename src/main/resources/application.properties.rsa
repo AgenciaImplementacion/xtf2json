@@ -7,7 +7,7 @@
 ch.so.agi.interlis.paths.uploadedFiles = /opt/ilivalidator/tmp/uploads
 ch.so.agi.interlis.paths.downloadedFiles = /opt/ilivalidator/tmp/downloads
 ch.so.agi.interlis.paths.iliDir = /opt/ilivalidator/tmp/ili
-ch.so.agi.interlis.paths.ogrPath = /usr/bin
+ch.so.agi.interlis.paths.ogrPath = /opt/miniconda3/bin
 
 # ========================
 # SPRING BOOT: MULTIPART
